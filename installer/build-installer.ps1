@@ -4,13 +4,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$versionMatch = Select-String -Path (Join-Path $projectRoot 'CMakeLists.txt') `
+    -Pattern '^project\(DeskTicker VERSION ([0-9]+\.[0-9]+\.[0-9]+)'
+if (-not $versionMatch) {
+    throw 'Could not read the DeskTicker version from CMakeLists.txt.'
+}
+$projectVersion = $versionMatch.Matches[0].Groups[1].Value
 $buildDirectory = Join-Path $projectRoot 'build'
 $releaseDirectory = Join-Path $buildDirectory 'Release'
 $releaseExecutable = Join-Path $releaseDirectory 'DeskTicker.exe'
 $packageDirectory = Join-Path $PSScriptRoot 'packages\com.deskticker.package'
 $dataDirectory = Join-Path $packageDirectory 'data'
 $configFile = Join-Path $PSScriptRoot 'config\config.xml'
-$outputFile = Join-Path $buildDirectory 'DeskTicker-Setup-0.2.0.exe'
+$outputFile = Join-Path $buildDirectory "DeskTicker-Setup-$projectVersion.exe"
 
 if (-not $BinaryCreatorPath) {
     $command = Get-Command binarycreator.exe -ErrorAction SilentlyContinue

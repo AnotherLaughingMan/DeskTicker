@@ -1,0 +1,129 @@
+name: Build and publish installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing GitHub release tag to attach installers to
+        required: true
+        default: v0.2.0
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    name: Linux package
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.project-version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes qt6-base-dev
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Read project version
+        id: project-version
+        run: |
+          version=$(sed -n 's/^CMAKE_PROJECT_VERSION:STATIC=//p' build/CMakeCache.txt)
+          test -n "$version"
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Package Debian installer
+        run: cpack --config build/CPackConfig.cmake
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DeskTicker-Linux-${{ steps.project-version.outputs.value }}
+          path: build/DeskTicker-*-Linux.deb
+          if-no-files-found: error
+
+  macos:
+    name: macOS disk image
+    runs-on: macos-15
+    outputs:
+      version: ${{ steps.project-version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.2'
+          host: mac
+          target: desktop
+          arch: clang_64
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Read project version
+        id: project-version
+        run: |
+          version=$(sed -n 's/^CMAKE_PROJECT_VERSION:STATIC=//p' build/CMakeCache.txt)
+          test -n "$version"
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+      - name: Build and deploy Qt runtime
+        run: cmake --build build --parallel
+      - name: Create versioned DMG
+        shell: bash
+        run: |
+          version=$(sed -n 's/^CMAKE_PROJECT_VERSION:STATIC=//p' build/CMakeCache.txt)
+          test -n "$version"
+          mkdir -p build/dmg-staging
+          cp -R build/DeskTicker.app build/dmg-staging/
+          ln -s /Applications build/dmg-staging/Applications
+          hdiutil create -volname "DeskTicker $version" \
+            -srcfolder build/dmg-staging -ov -format UDZO \
+            "build/DeskTicker-$version-macOS.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DeskTicker-macOS-${{ steps.project-version.outputs.value }}
+          path: build/DeskTicker-*-macOS.dmg
+          if-no-files-found: error
+
+  publish:
+    name: Attach installers to release
+    needs: [linux, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: DeskTicker-Linux-${{ needs.linux.outputs.version }}
+          path: dist/linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: DeskTicker-macOS-${{ needs.macos.outputs.version }}
+          path: dist/macos
+      - name: Upload assets to existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          VERSION: ${{ needs.linux.outputs.version }}
+        run: |
+          if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
+            echo "Release tag $RELEASE_TAG does not match CMake version $VERSION." >&2
+            exit 1
+          fi
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+          gh release upload "$RELEASE_TAG" dist/linux/* dist/macos/* \
+            --repo "$GITHUB_REPOSITORY" --clobber
+          cat > release-notes.md <<EOF
+          ## Features
+
+          - Locale-formatted live clock and date in a compact, frameless widget.
+          - Dragging with screen-edge snapping and remembered position.
+          - Customizable colors, opacity, widget size, text sizes, bold text, and screen padding.
+          - Optional always-on-top behavior and system-tray controls.
+          - Optional start-at-login integration on Windows, macOS, and Linux desktop environments.
+
+          ## Downloads
+
+          - **Windows:** DeskTicker-Setup-$VERSION.exe (installer with the Qt runtime included).
+          - **Linux (Debian/Ubuntu):** DeskTicker-$VERSION-Linux.deb.
+          - **macOS:** DeskTicker-$VERSION-macOS.dmg; drag DeskTicker.app to Applications.
+
+          The Linux and macOS installers are unsigned.
+          EOF
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --notes-file release-notes.md
