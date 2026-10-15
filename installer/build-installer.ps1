@@ -17,14 +17,7 @@ if (-not $BinaryCreatorPath) {
     if ($command) {
         $BinaryCreatorPath = $command.Source
     } else {
-        $installerFrameworkRoot = 'C:\Qt\Tools\QtInstallerFramework'
-        $binaryCreator = Get-ChildItem $installerFrameworkRoot -Filter binarycreator.exe -Recurse -ErrorAction SilentlyContinue |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1
-        if (-not $binaryCreator) {
-            throw 'Qt Installer Framework was not found. Pass -BinaryCreatorPath to binarycreator.exe.'
-        }
-        $BinaryCreatorPath = $binaryCreator.FullName
+        throw 'Qt Installer Framework was not found. Add binarycreator.exe to PATH or pass -BinaryCreatorPath.'
     }
 }
 

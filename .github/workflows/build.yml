@@ -17,23 +17,29 @@ jobs:
             os: windows-2022
             qt-host: windows
             qt-arch: win64_msvc2022_64
+            qt-version: '6.8.2'
           - name: macOS
-            os: macos-latest
+            os: macos-15
             qt-host: mac
             qt-arch: clang_64
+            qt-version: '6.8.2'
           - name: Ubuntu
             os: ubuntu-latest
-            qt-host: linux
-            qt-arch: gcc_64
 
     steps:
       - uses: actions/checkout@v4
       - uses: jurplel/install-qt-action@v4
+        if: runner.os != 'Linux'
         with:
-          version: '6.8.2'
+          version: ${{ matrix.qt-version }}
           host: ${{ matrix.qt-host }}
           target: desktop
           arch: ${{ matrix.qt-arch }}
+      - name: Install Qt on Ubuntu
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes qt6-base-dev
       - name: Configure
         run: cmake -S . -B build
       - name: Build
