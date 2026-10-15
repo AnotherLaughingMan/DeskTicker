@@ -34,7 +34,6 @@ jobs:
           host: ${{ matrix.qt-host }}
           target: desktop
           arch: ${{ matrix.qt-arch }}
-          modules: qtbase
       - name: Configure
         run: cmake -S . -B build
       - name: Build
