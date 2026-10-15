@@ -1,0 +1,17 @@
+# CMake and IDE build output
+/build/
+/out/
+CMakeUserPresets.json
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
+
+# Generated Windows installer payload and packages
+/installer/packages/com.deskticker.package/data/
+
+# Local editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
