@@ -83,6 +83,7 @@ if(UNIX AND NOT APPLE)
         DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
 
     set(CPACK_GENERATOR "DEB")
+    set(CPACK_PACKAGE_DIRECTORY "${CMAKE_BINARY_DIR}")
     set(CPACK_PACKAGE_NAME "DeskTicker")
     set(CPACK_PACKAGE_FILE_NAME "DeskTicker-${PROJECT_VERSION}-Linux")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A compact desktop clock widget")
